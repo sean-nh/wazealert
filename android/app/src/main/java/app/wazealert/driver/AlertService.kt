@@ -35,8 +35,12 @@ data class UiState(
     val gpsOff: Boolean = false,
 )
 
+/** What the map screen draws: own position/heading and the alerts within the alert radius. */
+data class MapSnap(val lat: Double, val lon: Double, val heading: Double?, val alerts: List<Alert>)
+
 object AlertState {
     val state = MutableStateFlow(UiState())
+    val map = MutableStateFlow<MapSnap?>(null)
     @Volatile var muted = false
     @Volatile var running = false
     @Volatile var hasFix = false
@@ -323,6 +327,7 @@ class AlertService : Service() {
         // re-arm voice for alerts that have left the 4 km zone
         announced.retainAll(all.filter { it.distanceM < 4000 }.map { it.id }.toSet())
 
+        AlertState.map.value = MapSnap(lat, lon, f.heading, all.take(300))
         val moving = f.heading != null
         val acc = if (loc.hasAccuracy()) "±${loc.accuracy.toInt()} m" else "?"
         val near = shown.firstOrNull { it.type in speakTypes }

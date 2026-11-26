@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.reportHazard).setOnClickListener { report("REPORT_HAZARD", "Hazard") }
         findViewById<Button>(R.id.voteUp).setOnClickListener { vote(1) }
         findViewById<Button>(R.id.voteDown).setOnClickListener { vote(-1) }
+        findViewById<Button>(R.id.openMap).setOnClickListener { startActivity(Intent(this, MapActivity::class.java)) }
         findViewById<Button>(R.id.selfcheck).setOnClickListener {
             startActivity(Intent(this, SelfCheckActivity::class.java))
         }
