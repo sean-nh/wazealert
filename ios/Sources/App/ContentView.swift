@@ -3,6 +3,9 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var engine: AlertEngine
     @State private var showSettings = false
+    @State private var showSelfCheck = false
+    @State private var showNudge = false
+    @AppStorage("selfCheckSeen") private var selfCheckSeen = false
     @State private var toast: String?
 
     private var bannerColor: Color {
@@ -56,6 +59,8 @@ struct ContentView: View {
                     }.buttonStyle(.bordered).frame(maxWidth: .infinity)
                 }
 
+                Button("Pre-drive self-check") { showSelfCheck = true }.buttonStyle(.bordered).frame(maxWidth: .infinity)
+
                 if let toast { Text(toast).font(.footnote).foregroundColor(.secondary) }
 
                 List(Array(engine.items.enumerated()), id: \.offset) { Text($0.element) }.listStyle(.plain)
@@ -69,6 +74,17 @@ struct ContentView: View {
                 }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .sheet(isPresented: $showSelfCheck) { SelfCheckView().environmentObject(engine) }
+            // once, after location is allowed: offer the self-check so there are no surprises on the road
+            .onChange(of: engine.permission) { p in
+                if (p == .ok || p == .reduced) && !selfCheckSeen { showNudge = true }
+            }
+            .alert("Check everything works?", isPresented: $showNudge) {
+                Button("Run self-check") { showSelfCheck = true }
+                Button("Later", role: .cancel) {}
+            } message: {
+                Text("The pre-drive self-check tests location, volume and voice, and plays a test alert, so there are no surprises on the road.")
+            }
         }
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true   // keep the display awake while visible

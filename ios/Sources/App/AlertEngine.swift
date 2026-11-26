@@ -36,12 +36,38 @@ final class AlertEngine: NSObject, ObservableObject, CLLocationManagerDelegate, 
 
     private let speakTypes: Set<String> = ["POLICE", "ACCIDENT", "HAZARD", "CAMERA"]
     private var defaults: UserDefaults { .standard }
+    private var lastState = ""
+    private var testCompletion: ((Bool) -> Void)?
+
+    // Read-only facts for the self-check screen.
+    var cameraCount: Int { db?.count ?? 0 }
+    var isStarted: Bool { started }
+    var fixAgeSeconds: Double? { tracker.fix.map { Date().timeIntervalSince1970 - $0.at } }
+    var fixAccuracy: Double? { tracker.fix?.sample.accuracy }
+
+    /// Logs only when the tracking state changes, so the diagnostics stay short.
+    private func note(_ state: String) {
+        if state != lastState { lastState = state; DiagLog.log("state: \(state)") }
+    }
+
+    /// Plays the same beep + speech a real alert uses so the driver hears it before driving.
+    func playTestAlert(done: @escaping (Bool) -> Void) {
+        let m = metric
+        let text = "Speed camera ahead, \(Fmt.dist(805, metric: m, spoken: true)), limit "
+            + Fmt.limit(56, metric: m).replacingOccurrences(of: "km/h", with: "kilometers per hour")
+        DiagLog.log("self-check: test alert")
+        if AVSpeechSynthesisVoice.speechVoices().isEmpty { done(false); return }
+        testCompletion = done
+        Beep.play()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.say(text) }
+    }
 
     // MARK: lifecycle
 
     func start() {
         guard !started else { return }
         started = true
+        DiagLog.log("engine started")
         lm.delegate = self
         lm.desiredAccuracy = kCLLocationAccuracyBestForNavigation
         lm.distanceFilter = kCLDistanceFilterNone
@@ -140,9 +166,12 @@ final class AlertEngine: NSObject, ObservableObject, CLLocationManagerDelegate, 
             do {
                 let loaded = try await CameraStore.load()
                 await MainActor.run { self?.db = loaded; self?.dbError = nil }
+                // get a fresher database for next time; never blocks alerts and failure is harmless
+                await CameraStore.refreshIfStale()
             } catch {
+                DiagLog.log("camera database load FAILED: \(error.localizedDescription)")
                 await MainActor.run {
-                    self?.dbError = "Camera DB download failed (\(error.localizedDescription)); retrying..."
+                    self?.dbError = "Camera data failed to load (\(error.localizedDescription)); retrying..."
                 }
                 try? await Task.sleep(nanoseconds: 30_000_000_000)
                 await MainActor.run { self?.loadDatabase() }
@@ -153,6 +182,7 @@ final class AlertEngine: NSObject, ObservableObject, CLLocationManagerDelegate, 
     // MARK: permissions
 
     private func handleAuthorization() {
+        DiagLog.log("location authorization status \(lm.authorizationStatus.rawValue), precise: \(lm.accuracyAuthorization == .fullAccuracy)")
         switch lm.authorizationStatus {
         case .notDetermined:
             permission = .unknown
@@ -217,12 +247,15 @@ final class AlertEngine: NSObject, ObservableObject, CLLocationManagerDelegate, 
         if let e = dbError, db == nil { status = e; return }
         guard let db = db else { status = "Loading camera database..."; return }
         guard let f = tracker.fix else {
+            note("waiting for GPS fix")
             status = "Waiting for GPS fix..."; nearest = "Searching for GPS"; nearestM = nil; items = []; return
         }
         let age = lastUpdate - f.at
         if age > FixTracker.lostAfter(moving: f.heading != nil) {
+            note("GPS signal LOST")
             status = "GPS signal lost (\(Int(age))s ago)"; nearest = "GPS signal lost"; nearestM = nil; return
         }
+        note("tracking")
 
         let lat = f.sample.lat, lon = f.sample.lon
         let radiusM = Double(defaults.integer(forKey: "radiusM"))
@@ -281,8 +314,9 @@ final class AlertEngine: NSObject, ObservableObject, CLLocationManagerDelegate, 
         if a.limitKmh > 0 {
             text += ", limit " + Fmt.limit(a.limitKmh, metric: metric).replacingOccurrences(of: "km/h", with: "kilometers per hour")
         }
+        DiagLog.log("speak: \(text)")
         if defaults.bool(forKey: "beep") {
-            AudioServicesPlaySystemSound(1057)
+            Beep.play()                       // plays through the audio session, so the silent switch does not mute it
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.say(text) }
         } else {
             say(text)
@@ -299,6 +333,13 @@ final class AlertEngine: NSObject, ObservableObject, CLLocationManagerDelegate, 
     }
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        DiagLog.log("speech finished")
+        if let done = testCompletion { testCompletion = nil; done(true) }
         if !synthesizer.isSpeaking { try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        DiagLog.log("speech CANCELLED")
+        if let done = testCompletion { testCompletion = nil; done(false) }
     }
 }

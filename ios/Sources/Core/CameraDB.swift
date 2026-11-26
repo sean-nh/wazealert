@@ -58,6 +58,9 @@ final class CameraDB {
     }
 }
 
+/// A snapshot of the database is bundled in the app (Resources/cameras.xz) so the first launch works with no
+/// connection; a fresher copy is downloaded in the background when the cache is older than a week and used
+/// from the next launch.
 enum CameraStore {
     private static let indexURL = URL(string: "https://wzsabre.rocks/cameras")!
     private static let maxAge: TimeInterval = 7 * 24 * 3600
@@ -67,27 +70,45 @@ enum CameraStore {
         let _link: Link
     }
 
-    /// Downloads (if the cache is older than a week) and loads the database. Call off the main thread.
-    static func load() async throws -> CameraDB {
+    private static func cacheFile() -> URL {
         let fm = FileManager.default
         let dir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        let file = dir.appendingPathComponent("cameras.xz")
+        return dir.appendingPathComponent("cameras.xz")
+    }
 
-        let modified = (try? fm.attributesOfItem(atPath: file.path))?[.modificationDate] as? Date
-        let stale = modified.map { Date().timeIntervalSince($0) > maxAge } ?? true
-        if stale {
-            do {
-                let (idx, _) = try await URLSession.shared.data(from: indexURL)
-                let link = try JSONDecoder().decode(Index.self, from: idx)._link.dataUrl
-                guard let dataURL = URL(string: link) else { throw URLError(.badURL) }
-                let (bytes, _) = try await URLSession.shared.data(from: dataURL)
-                try bytes.write(to: file, options: .atomic)
-            } catch {
-                if !fm.fileExists(atPath: file.path) { throw error }   // no cache to fall back on
-            }
+    /// Loads the cached database (copying the bundled one on first run). Never needs the network.
+    static func load(bundle: Bundle = .main) async throws -> CameraDB {
+        let fm = FileManager.default
+        let file = cacheFile()
+        if !fm.fileExists(atPath: file.path) {
+            guard let bundled = bundle.url(forResource: "cameras", withExtension: "xz") else { throw URLError(.fileDoesNotExist) }
+            try fm.copyItem(at: bundled, to: file)
+            // the bundled snapshot counts as stale, so refreshIfStale() fetches a newer one
+            try? fm.setAttributes([.modificationDate: Date.distantPast], ofItemAtPath: file.path)
+            DiagLog.log("camera database: using the copy bundled in the app")
         }
-        let compressed = try Data(contentsOf: file)
-        return CameraDB.parse(try CameraDB.decompress(compressed))
+        let db = CameraDB.parse(try CameraDB.decompress(try Data(contentsOf: file)))
+        DiagLog.log("camera database loaded: \(db.count) cameras")
+        return db
+    }
+
+    /// Downloads a newer database if the cache is older than a week. Takes effect on the next launch.
+    static func refreshIfStale() async {
+        let fm = FileManager.default
+        let file = cacheFile()
+        let modified = (try? fm.attributesOfItem(atPath: file.path))?[.modificationDate] as? Date
+        if let m = modified, Date().timeIntervalSince(m) < maxAge { return }
+        do {
+            let (idx, _) = try await URLSession.shared.data(from: indexURL)
+            let link = try JSONDecoder().decode(Index.self, from: idx)._link.dataUrl
+            guard let dataURL = URL(string: link) else { throw URLError(.badURL) }
+            let (bytes, _) = try await URLSession.shared.data(from: dataURL)
+            if bytes.count < 100_000 { throw URLError(.cannotParseResponse) }    // guard against an error page
+            try bytes.write(to: file, options: .atomic)
+            DiagLog.log("camera database: downloaded a newer copy (used from next launch)")
+        } catch {
+            DiagLog.log("camera database refresh skipped: \(error.localizedDescription)")
+        }
     }
 }

@@ -23,6 +23,18 @@ final class WazeAlertUITests: XCTestCase {
             XCUIDevice.shared.location = XCUILocation(location: CLLocation(latitude: 39.7535, longitude: -84.2230))
         }
 
+        // First-run prompt offering the self-check (appears once location is allowed): open it and look inside.
+        if app.alerts["Check everything works?"].waitForExistence(timeout: 10) {
+            app.alerts["Check everything works?"].buttons["Run self-check"].tap()
+            XCTAssertTrue(app.navigationBars["Pre-drive self-check"].waitForExistence(timeout: 5), "self-check did not open")
+            for title in ["Location permission", "GPS fix", "Camera database", "Volume", "Voice and beep", "Low Power Mode"] {
+                XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5), "self-check is missing the \(title) row")
+            }
+            XCTAssertTrue(app.buttons["Play test alert (beep + voice)"].exists)
+            app.buttons["Done"].tap()
+            XCTAssertTrue(app.navigationBars["WazeAlert"].waitForExistence(timeout: 5))
+        }
+
         // Main screen controls exist
         for name in ["Mute voice", "Pause", "Report police", "Report hazard"] {
             XCTAssertTrue(app.buttons[name].waitForExistence(timeout: 5), "missing button \(name)")

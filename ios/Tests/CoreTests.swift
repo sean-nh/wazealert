@@ -122,6 +122,32 @@ final class CoreTests: XCTestCase {
         XCTAssertNil(tr.fix?.heading)                                                                      // stationary
     }
 
+    // The camera snapshot bundled in the app must decode and parse, so the first launch works with no connection.
+    func testBundledCameraDatabaseLoads() throws {
+        let url = try XCTUnwrap(Bundle(for: AlertEngine.self).url(forResource: "cameras", withExtension: "xz"),
+                                "cameras.xz is not bundled in the app")
+        let db = CameraDB.parse(try CameraDB.decompress(try Data(contentsOf: url)))
+        XCTAssertGreaterThan(db.count, 100_000)
+        let near = db.near(lat: 39.75353475, lon: -84.22806708333334, radiusM: 50)
+        XCTAssertEqual(near.first?.street, "Roosevelt Elementary")
+    }
+
+    // The beep is generated in memory; check it is a well-formed WAV (RIFF header, 16-bit mono, 0.25 s).
+    func testBeepIsAValidWav() {
+        let d = Beep.wavData
+        XCTAssertEqual(String(data: d.prefix(4), encoding: .ascii), "RIFF")
+        XCTAssertEqual(String(data: d.subdata(in: 8..<12), encoding: .ascii), "WAVE")
+        XCTAssertEqual(d.count, 44 + 11025 * 2)
+    }
+
+    func testDiagnosticLogKeepsRecentLines() {
+        for i in 0..<350 { DiagLog.log("line \(i)") }
+        let dump = DiagLog.dump()
+        XCTAssertTrue(dump.contains("line 349"))
+        XCTAssertFalse(dump.contains("line 10\n"))
+        XCTAssertLessThanOrEqual(dump.split(separator: "\n").count, 300)
+    }
+
     func testSignalLostThresholds() {
         XCTAssertEqual(FixTracker.lostAfter(moving: true), 15)
         XCTAssertGreaterThan(FixTracker.lostAfter(moving: false), 60)   // a car at a red light must not trigger it
