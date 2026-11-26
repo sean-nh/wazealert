@@ -30,7 +30,9 @@ final class WazeAlertUITests: XCTestCase {
             for title in ["Location permission", "GPS fix", "Camera database", "Volume", "Voice and beep", "Low Power Mode"] {
                 XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5), "self-check is missing the \(title) row")
             }
-            XCTAssertTrue(app.buttons["Play test alert (beep + voice)"].exists)
+            // the buttons are at the bottom of a lazy list: scroll to them
+            for _ in 0..<4 where !app.buttons["Play test alert (beep + voice)"].exists { app.swipeUp() }
+            XCTAssertTrue(app.buttons["Play test alert (beep + voice)"].exists, "test-alert button missing")
             app.buttons["Done"].tap()
             XCTAssertTrue(app.navigationBars["WazeAlert"].waitForExistence(timeout: 5))
         }
