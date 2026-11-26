@@ -19,8 +19,8 @@ android {
         applicationId = "app.wazealert.driver"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.1"
+        versionCode = 4
+        versionName = "1.1.1"
     }
     signingConfigs {
         if (keystoreProps.containsKey("storeFile")) create("release") {
