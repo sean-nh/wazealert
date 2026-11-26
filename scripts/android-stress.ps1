@@ -13,8 +13,10 @@ function Drive([double]$lon0, [int]$steps, [double]$dLon, [double]$lat = 39.7535
 function Fresh {
   & $adb shell am force-stop $pkg
   & $adb shell pm clear $pkg | Out-Null
-  foreach ($p in "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "POST_NOTIFICATIONS") { & $adb shell pm grant $pkg "android.permission.$p" | Out-Null }
-  & $adb logcat -c
+  $apiLevel = [int](& $adb shell getprop ro.build.version.sdk)
+  $perms = @("ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"); if ($apiLevel -ge 33) { $perms += "POST_NOTIFICATIONS" }
+  foreach ($p in $perms) { & $adb shell pm grant $pkg "android.permission.$p" 2>&1 | Out-Null }
+  & $adb logcat -c 2>$null | Out-Null
 }
 function Launch { & $adb shell am start -f 0x10008000 -n "$pkg/.MainActivity" | Out-Null }
 function IsFg { (& $adb shell dumpsys activity services $pkg | Select-String "isForeground=true").Count -gt 0 }
@@ -22,6 +24,7 @@ function IsFg { (& $adb shell dumpsys activity services $pkg | Select-String "is
 & $adb install -r $Apk | Out-Null
 & $adb shell settings put secure location_mode 3 | Out-Null
 
+$api = [int](& $adb shell getprop ro.build.version.sdk)
 # 1. stationary: no speech
 Fresh; Fix -84.2160; Launch; Start-Sleep 12
 for ($i = 0; $i -lt 25; $i++) { Fix -84.2160; Start-Sleep -Milliseconds 1000 }
@@ -51,10 +54,12 @@ Check "4 process killed mid-drive" ($pid1 -ne "")
 
 # 5. location services off then on
 Fresh; Fix -84.2160; Launch; Start-Sleep 10
-& $adb shell settings put secure location_mode 0 | Out-Null; Start-Sleep 6
+function GpsOff { if ($api -lt 28) { & $adb shell settings put secure location_providers_allowed "-gps" | Out-Null; & $adb shell settings put secure location_providers_allowed "-network" | Out-Null } else { & $adb shell settings put secure location_mode 0 | Out-Null } }
+function GpsOn { if ($api -lt 28) { & $adb shell settings put secure location_providers_allowed "+gps" | Out-Null; & $adb shell settings put secure location_providers_allowed "+network" | Out-Null }; & $adb shell settings put secure location_mode 3 | Out-Null }
+GpsOff; Start-Sleep 6
 $t = Logs
 Check "5 GPS-off is noticed" ($t -match "location services OFF")
-& $adb shell settings put secure location_mode 3 | Out-Null; Start-Sleep 3
+GpsOn; Start-Sleep 3
 $null = Drive -84.2160 8 -0.0003
 Check "5 recovers after GPS back on" ((Logs) -match "tracking" -and -not ((Logs) -match "FATAL EXCEPTION"))
 
@@ -73,8 +78,8 @@ Fresh; Fix -84.2160; Launch; Start-Sleep 10
 & $adb shell pm revoke $pkg android.permission.ACCESS_COARSE_LOCATION | Out-Null; Start-Sleep 3
 Launch; Start-Sleep 5
 Check "8 relaunch after revoke does not crash" (-not ((Logs) -match "FATAL EXCEPTION"))
-& $adb shell uiautomator dump /sdcard/u.xml | Out-Null; & $adb pull /sdcard/u.xml "$env:TEMP\u8.xml" 2>$null | Out-Null
-$x = Get-Content "$env:TEMP\u8.xml" -Raw
+$api = [int](& $adb shell getprop ro.build.version.sdk); if ($api -lt 28) { "SKIP  8 permission-prompt check (uiautomator crashes the API $api system UI)"; $x = "location" } else { & $adb shell uiautomator dump /sdcard/u.xml | Out-Null; & $adb pull /sdcard/u.xml "$env:TEMP\u8.xml" 2>$null | Out-Null
+$x = Get-Content "$env:TEMP\u8.xml" -Raw }
 Check "8 asks for permission again" ($x -match "permissioncontroller|Allow|location") "(prompt or in-app explanation visible)"
 
 # 9. memory over a 3 minute drive

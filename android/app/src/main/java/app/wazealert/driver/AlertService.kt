@@ -208,6 +208,10 @@ class AlertService : Service() {
                 val dist = Geo.distance(p.latitude, p.longitude, loc.latitude, loc.longitude)
                 when {
                     dt < 0.5 -> tooSoon = true                       // too soon, keep previous reference
+                    !Geo.plausibleSpeed(dist / dt) -> {              // position jump (GPS glitch, tunnel exit): re-anchor, do not invent a speed/heading
+                        DiagLog.log("GPS jump of ${dist.toInt()} m ignored")
+                        prev = loc
+                    }
                     dist >= 8.0 && dist / dt >= 2.0 -> {             // moving: derive heading from the track
                         heading = Geo.bearing(p.latitude, p.longitude, loc.latitude, loc.longitude)
                         speed = dist / dt; prev = loc

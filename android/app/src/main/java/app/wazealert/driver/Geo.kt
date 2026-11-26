@@ -47,6 +47,10 @@ object Geo {
     fun dirMatches(heading: Double?, dirs: IntArray?, tolDeg: Double = 100.0): Boolean =
         heading == null || dirs == null || dirs.isEmpty() || dirs.any { angleDiff(heading, it.toDouble()) <= tolDeg }
 
+    /** Derived speeds above this (55 m/s = 198 km/h) are GPS position jumps, not driving. */
+    const val MAX_PLAUSIBLE_MPS = 55.0
+    fun plausibleSpeed(mps: Double): Boolean = mps <= MAX_PLAUSIBLE_MPS
+
     /** Faster than a camera's limit by more than a 5 km/h margin (GPS speed noise)? Unknown limit = never. */
     fun overLimit(speedMps: Double, limitKmh: Int): Boolean = limitKmh > 0 && speedMps * 3.6 > limitKmh + 5
 

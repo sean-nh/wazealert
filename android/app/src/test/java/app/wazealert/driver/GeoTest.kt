@@ -66,6 +66,13 @@ class GeoTest {
         assertFalse(Geo.overLimit(40.0, 0))     // unknown limit never warns
     }
 
+    @Test fun gpsJumpsAreNotSpeed() {
+        assertTrue(Geo.plausibleSpeed(33.0))      // 120 km/h
+        assertTrue(Geo.plausibleSpeed(55.0))
+        assertFalse(Geo.plausibleSpeed(66.0))     // 73 m in 1.1 s: seen from the emulator
+        assertFalse(Geo.plausibleSpeed(5_000_000.0)) // a 1000 km teleport in 1 s
+    }
+
     @Test fun units() {
         assertEquals("35 mph", Fmt.limit(56, false))
         assertEquals("30 mph", Fmt.limit(48, false))
