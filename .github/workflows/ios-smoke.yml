@@ -1,0 +1,60 @@
+name: iOS simulator smoke test
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen and generate project
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Boot an iPhone simulator
+        run: |
+          UDID=$(xcrun simctl list devices available iPhone | grep -Eo '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}' | head -1)
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Build (Release, simulator)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild build -project WazeAlert.xcodeproj -scheme WazeAlert -configuration Release \
+            -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath build CODE_SIGNING_ALLOWED=NO 2>&1 | tail -15
+
+      - name: Install, grant location, launch
+        run: |
+          APP=$(find ios/build/Build/Products -name WazeAlert.app -path '*iphonesimulator*' | head -1)
+          echo "app: $APP"
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl privacy "$UDID" grant location app.wazealert.driver
+          mkdir -p shots
+          xcrun simctl location "$UDID" set 39.7535,-84.2100
+          xcrun simctl launch "$UDID" app.wazealert.driver
+          sleep 20
+          xcrun simctl io "$UDID" screenshot shots/01-launched.png
+
+      - name: Drive west toward a camera (about 20 m/s)
+        run: |
+          xcrun simctl location "$UDID" start --speed=20 39.7535,-84.2100 39.7535,-84.2310
+          sleep 40
+          xcrun simctl io "$UDID" screenshot shots/02-driving-40s.png
+          sleep 30
+          xcrun simctl io "$UDID" screenshot shots/03-driving-70s.png
+
+      - name: App must still be running (no crash)
+        run: |
+          xcrun simctl spawn "$UDID" launchctl list | grep app.wazealert.driver
+          ls ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -i wazealert && exit 1 || echo "no crash reports"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-smoke-screenshots
+          path: shots/
