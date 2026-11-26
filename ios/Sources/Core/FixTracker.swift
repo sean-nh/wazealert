@@ -22,6 +22,10 @@ final class FixTracker {
     static let maxAccuracy = 100.0   // ignore fixes worse than this (meters)
     static let staleSeconds = 15.0   // ignore readings older than this
 
+    /// How long without a new fix before we call it "signal lost". iOS may deliver few updates to a phone that is
+    /// not moving (e.g. at a red light), so a stationary phone gets much longer than a moving one.
+    static func lostAfter(moving: Bool) -> Double { moving ? staleSeconds : 120 }
+
     private(set) var fix: Fix?
     private var prev: GPSSample?
 

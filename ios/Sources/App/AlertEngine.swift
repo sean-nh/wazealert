@@ -220,7 +220,7 @@ final class AlertEngine: NSObject, ObservableObject, CLLocationManagerDelegate, 
             status = "Waiting for GPS fix..."; nearest = "Searching for GPS"; nearestM = nil; items = []; return
         }
         let age = lastUpdate - f.at
-        if age > FixTracker.staleSeconds {
+        if age > FixTracker.lostAfter(moving: f.heading != nil) {
             status = "GPS signal lost (\(Int(age))s ago)"; nearest = "GPS signal lost"; nearestM = nil; return
         }
 

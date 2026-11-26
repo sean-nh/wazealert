@@ -122,6 +122,11 @@ final class CoreTests: XCTestCase {
         XCTAssertNil(tr.fix?.heading)                                                                      // stationary
     }
 
+    func testSignalLostThresholds() {
+        XCTAssertEqual(FixTracker.lostAfter(moving: true), 15)
+        XCTAssertGreaterThan(FixTracker.lostAfter(moving: false), 60)   // a car at a red light must not trigger it
+    }
+
     func testDeviceHeadingIsPreferred() {
         let tr = FixTracker()
         tr.accept(GPSSample(lat: 1, lon: 1, t: 1000, accuracy: 5, speed: 15, course: 90), now: 1000)
