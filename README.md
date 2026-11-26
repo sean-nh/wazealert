@@ -10,3 +10,9 @@ Camera and community-report alerts for drivers, on Android and iPhone.
 
 Camera data comes from the wzsabre.rocks camera database. See each folder's README or build files.
 Signing keys are never committed: `android/release.keystore` and `android/keystore.properties` stay local.
+
+## Testing
+
+- Unit tests and CI: see .github/workflows (Android, iOS, iOS simulator drive + UI tests, server).
+- Android emulator smoke test: scripts/android-emulator-smoke.ps1 (install, permissions, simulated drive, spoken alert, no crash/ANR).
+

@@ -13,6 +13,8 @@ import android.media.ToneGenerator
 import android.os.IBinder
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -48,6 +50,7 @@ class AlertService : Service() {
     private var fused: FusedLocationProviderClient? = null
     private var tts: TextToSpeech? = null
     @Volatile private var ttsReady = false
+    @Volatile private var ttsFailed = false
     private var tone: ToneGenerator? = null
     private var callback: LocationCallback? = null
 
@@ -62,6 +65,7 @@ class AlertService : Service() {
     private var nextRiskAt = 0L
 
     companion object {
+        private const val TAG = "WazeAlert"
         const val MAX_ACCURACY_M = 100f   // ignore fixes worse than this
         const val STALE_S = 15            // no usable fix for this long => "GPS signal lost"
         val speakTypes = setOf("POLICE", "ACCIDENT", "HAZARD", "CAMERA")
@@ -101,7 +105,16 @@ class AlertService : Service() {
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                 val l = Locale.getDefault()
                 tts?.language = if ((tts?.isLanguageAvailable(l) ?: -1) >= 0) l else Locale.US
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) { Log.i(TAG, "tts start $utteranceId") }
+                    override fun onDone(utteranceId: String?) { Log.i(TAG, "tts done $utteranceId") }
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) { Log.w(TAG, "tts error $utteranceId") }
+                })
                 ttsReady = true
+            } else {
+                ttsFailed = true          // no speech engine installed/enabled: say so instead of staying silent
+                Log.w(TAG, "TextToSpeech init failed: $status")
             }
         }
         tone = try { ToneGenerator(AudioManager.STREAM_MUSIC, 90) } catch (e: Exception) { null }
@@ -295,7 +308,7 @@ class AlertService : Service() {
             status = "GPS $acc · " +
                 (if (moving) "${Fmt.speed(f.speedMps, metric)}, heading ${"%.0f".format(f.heading)}°" else "stationary") +
                 " · ${cams.size} cameras" + (if (mine.isNotEmpty()) ", ${mine.size} yours" else "") +
-                communityNote + riskText,
+                communityNote + riskText + (if (ttsFailed) " · voice unavailable (no speech engine)" else ""),
             nearest = near?.let { "${it.label} ${Fmt.dist(it.distanceM, metric)}" } ?: "No alerts ahead",
             nearestM = near?.distanceM,
             nearestCommunityId = near?.takeIf { it.isCommunity }?.id,
@@ -315,6 +328,7 @@ class AlertService : Service() {
     private fun speak(a: Alert, metric: Boolean) {
         val text = "${a.label} ahead, ${Fmt.dist(a.distanceM, metric, spoken = true)}" +
             (if (a.limitKmh > 0) ", limit ${Fmt.limit(a.limitKmh, metric).replace("km/h", "kilometers per hour")}" else "")
+        Log.i(TAG, "speak: $text")
         if (Prefs.beep(this)) {
             tone?.startTone(ToneGenerator.TONE_PROP_BEEP2, 250)
             scope.launch { delay(400); tts?.speak(text, TextToSpeech.QUEUE_ADD, null, a.id) }
