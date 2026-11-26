@@ -36,7 +36,7 @@ data class UiState(
 )
 
 /** What the map screen draws: own position/heading and the alerts within the alert radius. */
-data class MapSnap(val lat: Double, val lon: Double, val heading: Double?, val alerts: List<Alert>)
+data class MapSnap(val lat: Double, val lon: Double, val heading: Double?, val alerts: List<Alert>, val speedMps: Double = 0.0)
 
 object AlertState {
     val state = MutableStateFlow(UiState())
@@ -65,6 +65,7 @@ class AlertService : Service() {
     private var prev: Location? = null
 
     private val announced = mutableSetOf<String>()
+    private val reminded = mutableSetOf<String>()   // cameras already given the closer "slow down" reminder
     @Volatile private var community: List<Alert> = emptyList()
     private var communityNote = ""
     @Volatile private var nextCommunityAt = 0L
@@ -326,12 +327,13 @@ class AlertService : Service() {
         fun bearingTo(a: Alert) = Geo.bearing(lat, lon, a.lat, a.lon)
         fun camOk(a: Alert) = !dirFilter || a.type != "CAMERA" || Geo.dirMatches(f.heading, a.dirs)
         val shown = all.filter { Geo.inMode(mode, f.heading, bearingTo(it), it.distanceM) && (mode == "radius" || camOk(it)) }
-        val ahead = all.filter { Geo.isAhead(f.heading, bearingTo(it)) && camOk(it) }   // what gets spoken
+        val ahead = all.filter { Geo.onCourse(f.heading, bearingTo(it), it.distanceM) && camOk(it) }   // what gets spoken: on my road, not a parallel one
 
         // re-arm voice for alerts that have left the 4 km zone
-        announced.retainAll(all.filter { it.distanceM < 4000 }.map { it.id }.toSet())
+        val inZone = all.filter { it.distanceM < 4000 }.map { it.id }.toSet()
+        announced.retainAll(inZone); reminded.retainAll(inZone)
 
-        AlertState.map.value = MapSnap(lat, lon, f.heading, all.take(300))
+        AlertState.map.value = MapSnap(lat, lon, f.heading, all.take(300), if (f.heading != null) f.speedMps else 0.0)
         val moving = f.heading != null
         val acc = if (loc.hasAccuracy()) "±${loc.accuracy.toInt()} m" else "?"
         val near = shown.firstOrNull { it.type in speakTypes }
@@ -356,18 +358,29 @@ class AlertService : Service() {
             val radius = minOf(Geo.warnRadiusM(f.speedMps, Prefs.lead(this)), radiusM)
             ahead.filter { it.type in speakTypes && voiceOn(it.type) && it.distanceM < radius && announced.add(it.id) }
                 .forEach { speak(it, metric, f.speedMps) }
+
+            // Second, closer reminder: still over a camera's limit about 12 s before reaching it.
+            if (Prefs.overLimitWarn(this) && voiceOn("CAMERA")) {
+                val closeM = (f.speedMps * 12).coerceIn(250.0, 600.0)
+                ahead.filter { it.type == "CAMERA" && it.distanceM < closeM && Geo.overLimit(f.speedMps, it.limitKmh) && reminded.add(it.id) }
+                    .forEach { say("Slow down, limit ${Fmt.limit(it.limitKmh, metric).replace("km/h", "kilometers per hour")}", it.id + "-r") }
+            }
         }
     }
 
     private fun speak(a: Alert, metric: Boolean, speedMps: Double = 0.0) {
         val text = "${a.label} ahead, ${Fmt.dist(a.distanceM, metric, spoken = true)}" +
             (if (a.limitKmh > 0) ", limit ${Fmt.limit(a.limitKmh, metric).replace("km/h", "kilometers per hour")}" else "") +
-            (if (Geo.overLimit(speedMps, a.limitKmh)) ", you are over the limit" else "")
+            (if (Prefs.overLimitWarn(this) && Geo.overLimit(speedMps, a.limitKmh)) ", you are over the limit" else "")
+        say(text, a.id)
+    }
+
+    private fun say(text: String, utteranceId: String) {
         DiagLog.log("speak: $text")
         if (Prefs.beep(this)) {
             tone?.startTone(ToneGenerator.TONE_PROP_BEEP2, 250)
-            scope.launch { delay(400); tts?.speak(text, TextToSpeech.QUEUE_ADD, null, a.id) }
-        } else tts?.speak(text, TextToSpeech.QUEUE_ADD, null, a.id)
+            scope.launch { delay(400); tts?.speak(text, TextToSpeech.QUEUE_ADD, null, utteranceId) }
+        } else tts?.speak(text, TextToSpeech.QUEUE_ADD, null, utteranceId)
     }
 
     override fun onDestroy() {

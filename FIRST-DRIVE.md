@@ -4,7 +4,7 @@ Do this once, parked, before you rely on the app. It takes about five minutes.
 
 ## 1. Install
 
-**Android:** on the phone, open the repository's *Releases* page, download `WazeAlert-1.0-release.apk`, open it and allow
+**Android:** on the phone, open the repository's *Releases* page, download the newest `WazeAlert-*-release.apk`, open it and allow
 "install unknown apps" for your browser when asked. (Android 8 or newer.)
 
 **iPhone:** `WazeAlert-unsigned.ipa` has to be signed with your Apple ID first (Sideloadly or AltStore from a PC/Mac, or
@@ -41,7 +41,9 @@ restrictions: see dontkillmyapp.com for your brand.
 - Banner colours: amber under 1 km, red under 400 m. Voice speaks about 30 to 70 seconds before you arrive (Settings > How early).
 - Alerts only speak while you are moving, and only for things ahead of you.
 - **Over the limit:** approaching a camera faster than its posted limit (plus a 5 km/h margin) the banner adds "SLOW DOWN" and the voice adds "you are over the limit".
-- **Map button:** shows you, your heading, nearby cameras and community reports. Map tiles need internet; alerts do not.
+- **Closer reminder:** if you are still over a camera's limit about 12 seconds before it, the voice says "Slow down, limit N" once. Both spoken warnings can be turned off in Settings > Cameras; the banner stays.
+- **Parallel roads:** spoken alerts only fire for cameras on your line of travel (within 45 degrees and 300 m to the side), so a camera on a nearby highway should not be announced. The list still shows everything in front of you.
+- **Map button:** shows you, your heading, your speed, nearby cameras and community reports. Map tiles need internet; alerts do not.
 - Car Bluetooth or CarPlay/Android Auto audio: the voice is played as navigation guidance, so it should come through the car speakers
   and lower your music. Check this once while parked using **Play test alert**.
 

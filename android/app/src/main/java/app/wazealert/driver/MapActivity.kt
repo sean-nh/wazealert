@@ -28,6 +28,8 @@ import java.io.File
 class MapActivity : AppCompatActivity() {
     private lateinit var map: MapView
     private lateinit var legend: TextView
+    private lateinit var speedView: TextView
+    private val arrowIcon by lazy { arrow() }   // built once, not on every 2-second redraw
     private var follow = true
     private var me: Marker? = null
     private val shown = ArrayList<Marker>()
@@ -54,9 +56,14 @@ class MapActivity : AppCompatActivity() {
             setBackgroundColor(Color.argb(200, 255, 255, 255)); setTextColor(Color.BLACK); setPadding(16, 8, 16, 8)
             textSize = 12f
         }
+        speedView = TextView(this).apply {
+            text = "--"; textSize = 28f; setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setBackgroundColor(Color.argb(210, 20, 20, 20)); setTextColor(Color.WHITE); setPadding(24, 8, 24, 8)
+        }
         setContentView(FrameLayout(this).apply {
             addView(map)
             addView(legend, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
+            addView(speedView, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins(24, 0, 0, 24) })
             addView(recenter, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, 24, 24) })
         })
         lifecycleScope.launch {
@@ -68,7 +75,8 @@ class MapActivity : AppCompatActivity() {
         val here = GeoPoint(s.lat, s.lon)
         val metric = Prefs.metric(this)
         val m = me ?: Marker(map).also { it.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER); it.title = "You"; me = it; map.overlays.add(it) }
-        m.icon = arrow()
+        m.icon = arrowIcon
+        speedView.text = Fmt.speed(s.speedMps, metric)
         m.rotation = -(s.heading ?: 0.0).toFloat()
         m.isFlat = true
         m.position = here

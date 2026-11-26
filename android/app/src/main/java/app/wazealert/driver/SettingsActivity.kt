@@ -53,6 +53,7 @@ class SettingsActivity : AppCompatActivity() {
 
         header("Cameras")
         check("Ignore cameras that face the other way", "dirFilter", true)
+        check("Say \"slow down\" when I'm over a camera's speed limit", "overLimit", true)
 
         header("How early to warn")
         val leads = listOf(30, 45, 70)

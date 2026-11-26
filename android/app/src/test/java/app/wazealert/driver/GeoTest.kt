@@ -66,6 +66,15 @@ class GeoTest {
         assertFalse(Geo.overLimit(40.0, 0))     // unknown limit never warns
     }
 
+    @Test fun onCourse() {
+        assertTrue(Geo.onCourse(90.0, 90.0, 1500.0))        // straight ahead
+        assertTrue(Geo.onCourse(90.0, 100.0, 1000.0))       // 10 deg off at 1 km = 174 m to the side
+        assertFalse(Geo.onCourse(90.0, 120.0, 800.0))       // 30 deg off at 800 m = 400 m to the side: parallel road
+        assertFalse(Geo.onCourse(90.0, 140.0, 300.0))       // 50 deg off: outside the cone
+        assertTrue(Geo.onCourse(null, 270.0, 1000.0))       // no heading: never hide
+        assertTrue(Geo.onCourse(350.0, 10.0, 500.0))        // wraps around north
+    }
+
     @Test fun gpsJumpsAreNotSpeed() {
         assertTrue(Geo.plausibleSpeed(33.0))      // 120 km/h
         assertTrue(Geo.plausibleSpeed(55.0))

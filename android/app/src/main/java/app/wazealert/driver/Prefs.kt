@@ -19,6 +19,8 @@ object Prefs {
     fun voicePolice(c: Context) = bool(c, "voicePolice", true)
     fun voiceHazard(c: Context) = bool(c, "voiceHazard", true)
     fun beep(c: Context) = bool(c, "beep", true)
+    /** Spoken "you are over the limit" / "slow down" for cameras with a known limit. */
+    fun overLimitWarn(c: Context) = bool(c, "overLimit", true)
     fun dirFilter(c: Context) = bool(c, "dirFilter", true)
     /** Warning lead time in seconds: 30 / 45 / 70. */
     fun lead(c: Context) = int(c, "lead", 45)

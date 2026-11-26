@@ -26,6 +26,18 @@ object Geo {
     fun isAhead(heading: Double?, bearingToTarget: Double, limitDeg: Double = 70.0): Boolean =
         heading == null || angleDiff(heading, bearingToTarget) < limitDeg
 
+    /**
+     * Is the target on the road we are driving, rather than on a parallel road or a side street?
+     * Within 45 degrees of the heading AND no more than [maxSideM] to the side of the line of travel.
+     * Used for voice alerts only (the list keeps the wider 70-degree cone). A camera that only falls inside this
+     * corridor later (curving road) is announced then, because nothing is marked as announced before.
+     */
+    fun onCourse(heading: Double?, bearingToTarget: Double, distM: Double, maxSideM: Double = 300.0): Boolean {
+        if (heading == null) return true
+        val diff = angleDiff(heading, bearingToTarget)
+        return diff < 45.0 && crossTrackM(distM, diff) <= maxSideM
+    }
+
     /** Sideways distance (m) from the line you are driving along to a target at [distM] and [diffDeg] off your heading. */
     fun crossTrackM(distM: Double, diffDeg: Double): Double = abs(distM * sin(Math.toRadians(diffDeg)))
 
