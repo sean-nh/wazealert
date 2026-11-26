@@ -1,0 +1,58 @@
+name: WazeAlert
+options:
+  bundleIdPrefix: app.wazealert
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"          # iPhone only
+packages:
+  SWCompression:
+    url: https://github.com/tsolomko/SWCompression
+    from: 4.8.0
+targets:
+  WazeAlert:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    dependencies:
+      - package: SWCompression
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.wazealert.driver
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Set your Apple team here (or in Xcode > Signing & Capabilities) to run on a real iPhone.
+        DEVELOPMENT_TEAM: ""
+    info:
+      path: Config/Info.plist
+      properties:
+        CFBundleDisplayName: WazeAlert
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [location, audio]
+        # HTTPS only; plain HTTP is allowed to local-network hosts (for testing against a server on your own machine).
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSLocationWhenInUseUsageDescription: "WazeAlert uses your precise location to warn you about speed cameras and alerts ahead of you, including while the screen is off."
+        NSLocationTemporaryUsageDescriptionDictionary:
+          Precise: "Precise location is needed so camera and alert distances are accurate."
+  WazeAlertTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: WazeAlert
+schemes:
+  WazeAlert:
+    build:
+      targets:
+        WazeAlert: all
+    test:
+      targets:
+        - WazeAlertTests

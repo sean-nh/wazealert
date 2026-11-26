@@ -1,0 +1,53 @@
+name: iOS build and test
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Pick an iPhone simulator
+        run: |
+          UDID=$(xcrun simctl list devices available iPhone | grep -Eo '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}' | head -1)
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          echo "Using simulator $UDID"
+
+      - name: Unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test -project WazeAlert.xcodeproj -scheme WazeAlert \
+            -destination "platform=iOS Simulator,id=$SIM_UDID" \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee test.log | tail -60
+
+      - name: Build for device (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild build -project WazeAlert.xcodeproj -scheme WazeAlert \
+            -destination "generic/platform=iOS" -configuration Release \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO 2>&1 | tail -40
+
+      - name: Package unsigned .ipa (for re-signing / sideloading tools)
+        run: |
+          mkdir -p Payload && cp -R build/Build/Products/Release-iphoneos/WazeAlert.app Payload/
+          zip -qr WazeAlert-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-build-outputs
+          path: |
+            ios/WazeAlert-unsigned.ipa
+            ios/test.log
