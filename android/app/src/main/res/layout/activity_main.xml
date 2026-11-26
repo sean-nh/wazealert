@@ -93,6 +93,12 @@
         android:text="Open settings" />
 
     <Button
+        android:id="@+id/selfcheck"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pre-drive self-check" />
+
+    <Button
         android:id="@+id/settings"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

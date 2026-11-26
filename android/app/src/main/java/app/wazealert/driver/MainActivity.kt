@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private var needsAppSettings = false
     private var asked = false
     private var communityId: String? = null
+    private var nudged = false
 
     private val permLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { checkAndStart() }
@@ -53,6 +54,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.reportHazard).setOnClickListener { report("REPORT_HAZARD", "Hazard") }
         findViewById<Button>(R.id.voteUp).setOnClickListener { vote(1) }
         findViewById<Button>(R.id.voteDown).setOnClickListener { vote(-1) }
+        findViewById<Button>(R.id.selfcheck).setOnClickListener {
+            startActivity(Intent(this, SelfCheckActivity::class.java))
+        }
         findViewById<Button>(R.id.settings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
@@ -129,6 +133,15 @@ class MainActivity : AppCompatActivity() {
                 permLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS)); return
             }
             ContextCompat.startForegroundService(this, Intent(this, AlertService::class.java))
+            if (!Prefs.bool(this, "selfCheckSeen", false) && !nudged) {
+                nudged = true
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("Check everything works?")
+                    .setMessage("The pre-drive self-check tests location, volume, voice and battery settings, and plays a test alert, so there are no surprises on the road.")
+                    .setPositiveButton("Run self-check") { _, _ -> startActivity(Intent(this, SelfCheckActivity::class.java)) }
+                    .setNegativeButton("Later", null)
+                    .show()
+            }
             return
         }
         if (!asked) {

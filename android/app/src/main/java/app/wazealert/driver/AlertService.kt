@@ -40,6 +40,9 @@ object AlertState {
     @Volatile var muted = false
     @Volatile var running = false
     @Volatile var hasFix = false
+    /** Accuracy (m) and uptime-millis of the latest accepted GPS fix, for the self-check screen. */
+    @Volatile var accuracyM = -1f
+    @Volatile var fixAtMs = 0L
 }
 
 /** A GPS fix plus the heading/speed we trust (device-reported, or derived from consecutive fixes). */
@@ -97,6 +100,7 @@ class AlertService : Service() {
         try { ServiceCompat.startForeground(this, 1, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION) }
         catch (e: Exception) { stopSelf(); return START_NOT_STICKY }
         AlertState.running = true
+        DiagLog.log("service started")
 
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
@@ -106,15 +110,16 @@ class AlertService : Service() {
                 val l = Locale.getDefault()
                 tts?.language = if ((tts?.isLanguageAvailable(l) ?: -1) >= 0) l else Locale.US
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) { Log.i(TAG, "tts start $utteranceId") }
-                    override fun onDone(utteranceId: String?) { Log.i(TAG, "tts done $utteranceId") }
+                    override fun onStart(utteranceId: String?) { DiagLog.log("tts start $utteranceId") }
+                    override fun onDone(utteranceId: String?) { DiagLog.log("tts done $utteranceId") }
                     @Deprecated("Deprecated in Java")
-                    override fun onError(utteranceId: String?) { Log.w(TAG, "tts error $utteranceId") }
+                    override fun onError(utteranceId: String?) { DiagLog.log("tts ERROR $utteranceId") }
                 })
                 ttsReady = true
+                DiagLog.log("speech engine ready")
             } else {
                 ttsFailed = true          // no speech engine installed/enabled: say so instead of staying silent
-                Log.w(TAG, "TextToSpeech init failed: $status")
+                DiagLog.log("speech engine FAILED to start (status $status)")
             }
         }
         tone = try { ToneGenerator(AudioManager.STREAM_MUSIC, 90) } catch (e: Exception) { null }
@@ -209,8 +214,11 @@ class AlertService : Service() {
         }
         val old = fix
         if (tooSoon && old?.heading != null) { heading = old.heading; speed = old.speedMps }
+        if (fix == null) DiagLog.log("first GPS fix accepted (accuracy ${if (loc.hasAccuracy()) loc.accuracy.toInt() else -1} m)")
         fix = Fix(loc, heading, speed, SystemClock.elapsedRealtime())
         AlertState.hasFix = true
+        AlertState.accuracyM = if (loc.hasAccuracy()) loc.accuracy else -1f
+        AlertState.fixAtMs = SystemClock.elapsedRealtime()
     }
 
     // ---- main loop ---------------------------------------------------------------------------------------
@@ -221,8 +229,14 @@ class AlertService : Service() {
             if (!CameraDb.loaded) {
                 try { CameraDb.load(applicationContext) }
                 catch (e: Exception) {
-                    publish(UiState(status = "Camera DB download failed (${e.message}); retrying..."))
+                    DiagLog.log("camera database load FAILED: ${e.message}")
+                    publish(UiState(status = "Camera data failed to load (${e.message}); retrying..."))
                     delay(30_000); continue
+                }
+                // Get a fresher database for next time; never blocks alerts and failure is harmless.
+                scope.launch(Dispatchers.IO) {
+                    try { CameraDb.refresh(applicationContext) }
+                    catch (e: Exception) { DiagLog.log("camera database refresh skipped: ${e.message}") }
                 }
             }
             try { update() } catch (e: Exception) { publish(UiState(status = "Error: ${e.message}")) }
@@ -252,6 +266,7 @@ class AlertService : Service() {
                     community = CommunityClient.fetch(base, lat, lon, radiusM, maxSeenSec)
                     communityNote = " · ${community.size} community"
                 } catch (e: Exception) {
+                    if (communityNote != " · community offline") DiagLog.log("community server unreachable: ${e.message}")
                     community = emptyList(); communityNote = " · community offline"
                     nextCommunityAt = System.currentTimeMillis() + 120_000
                 }
@@ -269,16 +284,23 @@ class AlertService : Service() {
         }
     }
 
+    private var lastState = ""
+    /** Logs only when the tracking state changes, so the diagnostics stay short. */
+    private fun note(state: String) { if (state != lastState) { lastState = state; DiagLog.log("state: $state") } }
+
     private fun update() {
         if (!gpsEnabled()) {
+            note("location services OFF")
             publish(UiState(status = "Location services are off", nearest = "GPS off", gpsOff = true)); return
         }
         val f = fix
-            ?: run { publish(UiState(status = "Waiting for GPS fix...", nearest = "Searching for GPS")); return }
+            ?: run { note("waiting for GPS fix"); publish(UiState(status = "Waiting for GPS fix...", nearest = "Searching for GPS")); return }
         val ageS = (SystemClock.elapsedRealtime() - f.at) / 1000
         if (ageS > STALE_S) {
+            note("GPS signal LOST")
             publish(UiState(status = "GPS signal lost (${ageS}s ago)", nearest = "GPS signal lost")); return
         }
+        note("tracking")
         val loc = f.loc
         val lat = loc.latitude; val lon = loc.longitude
         val metric = Prefs.metric(this)
@@ -328,7 +350,7 @@ class AlertService : Service() {
     private fun speak(a: Alert, metric: Boolean) {
         val text = "${a.label} ahead, ${Fmt.dist(a.distanceM, metric, spoken = true)}" +
             (if (a.limitKmh > 0) ", limit ${Fmt.limit(a.limitKmh, metric).replace("km/h", "kilometers per hour")}" else "")
-        Log.i(TAG, "speak: $text")
+        DiagLog.log("speak: $text")
         if (Prefs.beep(this)) {
             tone?.startTone(ToneGenerator.TONE_PROP_BEEP2, 250)
             scope.launch { delay(400); tts?.speak(text, TextToSpeech.QUEUE_ADD, null, a.id) }
@@ -336,6 +358,7 @@ class AlertService : Service() {
     }
 
     override fun onDestroy() {
+        DiagLog.log("service stopped")
         AlertState.running = false
         AlertState.hasFix = false
         callback?.let { fused?.removeLocationUpdates(it) }

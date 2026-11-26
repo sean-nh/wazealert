@@ -52,6 +52,9 @@ object CommunityClient {
             JSONObject().put("deviceId", deviceId).put("vote", vote))
     }
 
+    /** True if the server answers its health check. */
+    fun ping(base: String): Boolean = try { call("GET", "$base/healthz").optBoolean("ok") } catch (e: Exception) { false }
+
     fun risk(base: String, lat: Double, lon: Double, tzMinutes: Int): Risk {
         val o = call("GET", "$base/v1/risk?lat=$lat&lon=$lon&radius=3000&tz=$tzMinutes")
         return Risk(o.getInt("score"), o.getString("level"))

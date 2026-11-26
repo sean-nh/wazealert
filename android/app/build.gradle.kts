@@ -30,6 +30,7 @@ android {
             keyPassword = keystoreProps.getProperty("keyPassword")
         }
     }
+    androidResources { noCompress += "xz" }   // the bundled camera file is already compressed
     buildTypes {
         release {
             isMinifyEnabled = false
