@@ -77,7 +77,8 @@ final class WazeAlertUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Miles / mph"].isSelected)
         for _ in 0..<4 where !hasSection("About") { app.swipeUp() }
         for header in ["Community server", "About"] { XCTAssertTrue(hasSection(header), "missing section \(header) after scrolling") }
-        for _ in 0..<4 { app.swipeDown() }
+        // scroll back up only until the top is visible: extra swipes would dismiss the sheet
+        for _ in 0..<4 where !hasSection("Units") { app.swipeDown() }
         app.buttons["Done"].tap()
         XCTAssertTrue(app.navigationBars["WazeAlert"].waitForExistence(timeout: 5), "did not return to the main screen")
 
