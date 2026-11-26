@@ -49,6 +49,9 @@ enum Geo {
         return d.contains { angleDiff(h, Double($0)) <= tol }
     }
 
+    /// Faster than a camera's limit by more than a 5 km/h margin (GPS speed noise)? Unknown limit = never.
+    static func overLimit(speed: Double, limitKmh: Int) -> Bool { limitKmh > 0 && speed * 3.6 > Double(limitKmh) + 5 }
+
     /// How far ahead (meters) to warn: `lead` seconds of travel, clamped to 800...3000 m.
     static func warnRadius(speed: Double, lead: Int = 45) -> Double {
         min(3000, max(800, speed * Double(lead)))

@@ -296,7 +296,11 @@ final class AlertEngine: NSObject, ObservableObject, CLLocationManagerDelegate, 
         status = st
 
         let near = shown.first { speakTypes.contains($0.type) }
-        nearest = near.map { "\($0.label) \(Fmt.dist($0.distanceM, metric: m))" } ?? "No alerts ahead"
+        nearest = near.map { n in
+            "\(n.label) \(Fmt.dist(n.distanceM, metric: m))"
+                + (moving && n.distanceM < 1500 && Geo.overLimit(speed: f.speed, limitKmh: n.limitKmh)
+                   ? " - SLOW DOWN (limit \(Fmt.limit(n.limitKmh, metric: m)))" : "")
+        } ?? "No alerts ahead"
         nearestM = near?.distanceM
         nearestCommunityId = (near?.isCommunity ?? false) ? near?.id : nil
         items = shown.map {
@@ -307,18 +311,19 @@ final class AlertEngine: NSObject, ObservableObject, CLLocationManagerDelegate, 
         if moving && !muted {
             let radius = min(Geo.warnRadius(speed: f.speed, lead: defaults.integer(forKey: "lead")), radiusM)
             for a in ahead where speakTypes.contains(a.type) && voiceOn(a.type) && a.distanceM < radius {
-                if announced.insert(a.id).inserted { speak(a, metric: m) }
+                if announced.insert(a.id).inserted { speak(a, metric: m, speed: f.speed) }
             }
         }
     }
 
     // MARK: voice
 
-    private func speak(_ a: Alert, metric: Bool) {
+    private func speak(_ a: Alert, metric: Bool, speed: Double = 0) {
         var text = "\(a.label) ahead, \(Fmt.dist(a.distanceM, metric: metric, spoken: true))"
         if a.limitKmh > 0 {
             text += ", limit " + Fmt.limit(a.limitKmh, metric: metric).replacingOccurrences(of: "km/h", with: "kilometers per hour")
         }
+        if Geo.overLimit(speed: speed, limitKmh: a.limitKmh) { text += ", you are over the limit" }
         DiagLog.log("speak: \(text)")
         if defaults.bool(forKey: "beep") {
             Beep.play()                       // plays through the audio session, so the silent switch does not mute it

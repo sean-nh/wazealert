@@ -72,6 +72,13 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(Geo.warnRadius(speed: 30, lead: 70), 2100, accuracy: 1e-9)
     }
 
+    func testOverLimit() {
+        XCTAssertTrue(Geo.overLimit(speed: 20, limitKmh: 56))     // 72 km/h in a 56 zone
+        XCTAssertFalse(Geo.overLimit(speed: 15, limitKmh: 56))    // 54 km/h, under
+        XCTAssertFalse(Geo.overLimit(speed: 16.5, limitKmh: 56))  // 59.4 km/h, inside the 5 km/h margin
+        XCTAssertFalse(Geo.overLimit(speed: 40, limitKmh: 0))     // unknown limit never warns
+    }
+
     func testUnits() {
         XCTAssertEqual(Fmt.limit(56, metric: false), "35 mph")
         XCTAssertEqual(Fmt.limit(48, metric: false), "30 mph")
