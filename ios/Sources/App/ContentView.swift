@@ -4,6 +4,7 @@ struct ContentView: View {
     @EnvironmentObject var engine: AlertEngine
     @State private var showSettings = false
     @State private var showSelfCheck = false
+    @State private var showMap = false
     @State private var showNudge = false
     @AppStorage("selfCheckSeen") private var selfCheckSeen = false
     @State private var toast: String?
@@ -59,6 +60,8 @@ struct ContentView: View {
                     }.buttonStyle(.bordered).frame(maxWidth: .infinity)
                 }
 
+                Button("Map") { showMap = true }.buttonStyle(.bordered).frame(maxWidth: .infinity)
+
                 Button("Pre-drive self-check") { showSelfCheck = true }.buttonStyle(.bordered).frame(maxWidth: .infinity)
 
                 if let toast { Text(toast).font(.footnote).foregroundColor(.secondary) }
@@ -74,6 +77,7 @@ struct ContentView: View {
                 }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .sheet(isPresented: $showMap) { MapScreen().environmentObject(engine) }
             .sheet(isPresented: $showSelfCheck) { SelfCheckView().environmentObject(engine) }
             // once, after location is allowed: offer the self-check so there are no surprises on the road
             .onChange(of: engine.permission) { p in

@@ -38,9 +38,15 @@ final class WazeAlertUITests: XCTestCase {
         }
 
         // Main screen controls exist
-        for name in ["Mute voice", "Pause", "Report police", "Report hazard"] {
+        for name in ["Mute voice", "Pause", "Report police", "Report hazard", "Map"] {
             XCTAssertTrue(app.buttons[name].waitForExistence(timeout: 5), "missing button \(name)")
         }
+
+        // Map opens and closes
+        app.buttons["Map"].tap()
+        XCTAssertTrue(app.navigationBars["Map"].waitForExistence(timeout: 5), "map did not open")
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.navigationBars["WazeAlert"].waitForExistence(timeout: 5))
 
         // Mute toggles its own label
         app.buttons["Mute voice"].tap()

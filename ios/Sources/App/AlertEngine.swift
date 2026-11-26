@@ -8,6 +8,10 @@ import UIKit
 final class AlertEngine: NSObject, ObservableObject, CLLocationManagerDelegate, AVSpeechSynthesizerDelegate {
     enum Permission { case unknown, denied, reduced, ok }
 
+    /// What the map screen draws: own position/heading and the alerts inside the alert radius.
+    struct MapSnap { let lat: Double; let lon: Double; let heading: Double?; let alerts: [Alert] }
+    @Published var mapSnap: MapSnap? = nil
+
     @Published var status = "Starting..."
     @Published var nearest = "No alerts ahead"
     @Published var nearestM: Double? = nil
@@ -280,6 +284,7 @@ final class AlertEngine: NSObject, ObservableObject, CLLocationManagerDelegate, 
         let near4k = Set(all.filter { $0.distanceM < 4000 }.map { $0.id })
         announced = announced.intersection(near4k)
 
+        mapSnap = MapSnap(lat: lat, lon: lon, heading: f.heading, alerts: Array(all.prefix(300)))
         let m = metric
         let moving = f.heading != nil
         let acc = "±\(Int(f.sample.accuracy)) m"
