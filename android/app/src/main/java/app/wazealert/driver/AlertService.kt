@@ -14,7 +14,9 @@ import android.os.IBinder
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import com.google.android.gms.location.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -87,7 +89,8 @@ class AlertService : Service() {
             != PackageManager.PERMISSION_GRANTED) {
             stopSelf(); return START_NOT_STICKY
         }
-        try { startForeground(1, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION) }
+        // ServiceCompat: the 3-argument startForeground only exists on Android 10+, this works back to Android 8.
+        try { ServiceCompat.startForeground(this, 1, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION) }
         catch (e: Exception) { stopSelf(); return START_NOT_STICKY }
         AlertState.running = true
 
@@ -216,7 +219,7 @@ class AlertService : Service() {
 
     private fun publish(s: UiState) { AlertState.state.value = s }
 
-    private fun gpsEnabled(): Boolean = getSystemService(LocationManager::class.java).isLocationEnabled
+    private fun gpsEnabled(): Boolean = LocationManagerCompat.isLocationEnabled(getSystemService(LocationManager::class.java))
 
     private fun voiceOn(type: String) = when (type) {
         "CAMERA" -> Prefs.voiceCamera(this)
