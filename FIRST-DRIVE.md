@@ -36,14 +36,14 @@ restrictions: see dontkillmyapp.com for your brand.
 
 ## 4. On the road
 
-- Open the app **before** you start driving and wait for "GPS ... mph" to appear in the grey status line.
-- Leave it running. The screen can turn off; keep the phone plugged in on long trips (GPS drains the battery).
-- Banner colours: amber under 1 km, red under 400 m. Voice speaks about 30 to 70 seconds before you arrive (Settings > How early).
+- The app opens on the **map**. Open it before you start driving; the top card says 'Finding your location...' until GPS is ready, then 'All clear'.
+- **The map:** turns to face the way you drive, zooms out as you speed up, and goes dark at night. Big card at the top = the next camera or report ahead, with its posted limit in a red-ring sign. The round bubble bottom-left is your speed and turns red when you are over the next camera's limit. Buttons: **Police** / **Hazard** report what you see, **Mute** silences the voice, **Menu** has the alert list, pre-drive check, settings and Stop. Drag the map to look around; it snaps back to you after 12 seconds (or tap the target button). The side buttons switch heading-up / north-up and zoom.
+- Leave it running. The screen stays on while the app is open; keep the phone plugged in on long trips (GPS drains the battery).
+- Card colours: amber under 1 km, red under 400 m. Voice speaks about 30 to 70 seconds before you arrive (Settings > How early).
 - Alerts only speak while you are moving, and only for things ahead of you.
-- **Over the limit:** approaching a camera faster than its posted limit (plus a 5 km/h margin) the banner adds "SLOW DOWN" and the voice adds "you are over the limit".
-- **Closer reminder:** if you are still over a camera's limit about 12 seconds before it, the voice says "Slow down, limit N" once. Both spoken warnings can be turned off in Settings > Cameras; the banner stays.
-- **Parallel roads:** spoken alerts only fire for cameras on your line of travel (within 45 degrees and 300 m to the side), so a camera on a nearby highway should not be announced. The list still shows everything in front of you.
-- **Map button:** shows you, your heading, your speed, nearby cameras and community reports. Map tiles need internet; alerts do not.
+- **Over the limit:** approaching a camera faster than its posted limit (plus a 5 km/h margin) the card adds "SLOW DOWN" and the voice adds "you are over the limit".
+- **Closer reminder:** if you are still over a camera's limit about 12 seconds before it, the voice says "Slow down, limit N" once. Both spoken warnings can be turned off in Settings > Cameras; the card still says SLOW DOWN.
+- **Parallel roads:** spoken alerts only fire for cameras on your line of travel (within 45 degrees and 300 m to the side), so a camera on a nearby highway should not be announced. The alert list (Menu) still shows everything in front of you. Map tiles are OpenStreetMap and need internet (they are cached after use); alerts and the cameras do not.
 - Car Bluetooth or CarPlay/Android Auto audio: the voice is played as navigation guidance, so it should come through the car speakers
   and lower your music. Check this once while parked using **Play test alert**.
 

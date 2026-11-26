@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private var asked = false
     private var communityId: String? = null
     private var nudged = false
+    private var mapOpened = false
 
     private val permLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { checkAndStart() }
@@ -123,6 +124,13 @@ class MainActivity : AppCompatActivity() {
         checkAndStart()
     }
 
+    /** The app opens on the map; Back from the map lands on this screen (list, report buttons, settings). Only once per launch. */
+    private fun openMapOnce() {
+        if (mapOpened) return
+        mapOpened = true
+        startActivity(Intent(this, MapActivity::class.java))
+    }
+
     private fun hasFine() = granted(Manifest.permission.ACCESS_FINE_LOCATION)
     private fun granted(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
 
@@ -139,10 +147,11 @@ class MainActivity : AppCompatActivity() {
                 androidx.appcompat.app.AlertDialog.Builder(this)
                     .setTitle("Check everything works?")
                     .setMessage("The pre-drive self-check tests location, volume, voice and battery settings, and plays a test alert, so there are no surprises on the road.")
-                    .setPositiveButton("Run self-check") { _, _ -> startActivity(Intent(this, SelfCheckActivity::class.java)) }
-                    .setNegativeButton("Later", null)
+                    .setPositiveButton("Run self-check") { _, _ -> mapOpened = true; startActivity(Intent(this, SelfCheckActivity::class.java)) }
+                    .setNegativeButton("Later") { _, _ -> openMapOnce() }
+                    .setOnCancelListener { openMapOnce() }
                     .show()
-            }
+            } else if (!nudged) openMapOnce()
             return
         }
         if (!asked) {
