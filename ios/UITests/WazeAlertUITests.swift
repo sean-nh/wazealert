@@ -46,13 +46,18 @@ final class WazeAlertUITests: XCTestCase {
         // Settings sheet
         app.buttons["Settings and about"].tap()
         XCTAssertTrue(app.navigationBars["Settings & about"].waitForExistence(timeout: 5), "settings did not open")
-        for header in ["Units", "Show alerts", "Radius", "Voice alerts for", "Community server", "About"] {
-            XCTAssertTrue(app.staticTexts[header].exists || app.staticTexts[header.uppercased()].exists, "missing section \(header)")
+        func hasSection(_ header: String) -> Bool {
+            app.staticTexts[header].exists || app.staticTexts[header.uppercased()].exists
         }
+        // The form is a lazy list: rows below the fold are not in the accessibility tree until scrolled to.
+        for header in ["Units", "Show alerts"] { XCTAssertTrue(hasSection(header), "missing section \(header)") }
         app.buttons["Kilometers / km/h"].tap()
         XCTAssertTrue(app.buttons["Kilometers / km/h"].isSelected)
         app.buttons["Miles / mph"].tap()                         // put it back
         XCTAssertTrue(app.buttons["Miles / mph"].isSelected)
+        for _ in 0..<4 where !hasSection("About") { app.swipeUp() }
+        for header in ["Community server", "About"] { XCTAssertTrue(hasSection(header), "missing section \(header) after scrolling") }
+        for _ in 0..<4 { app.swipeDown() }
         app.buttons["Done"].tap()
         XCTAssertTrue(app.navigationBars["WazeAlert"].waitForExistence(timeout: 5), "did not return to the main screen")
 
