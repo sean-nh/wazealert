@@ -40,6 +40,8 @@ restrictions: see dontkillmyapp.com for your brand.
 - Leave it running. The screen can turn off; keep the phone plugged in on long trips (GPS drains the battery).
 - Banner colours: amber under 1 km, red under 400 m. Voice speaks about 30 to 70 seconds before you arrive (Settings > How early).
 - Alerts only speak while you are moving, and only for things ahead of you.
+- **Over the limit:** approaching a camera faster than its posted limit (plus a 5 km/h margin) the banner adds "SLOW DOWN" and the voice adds "you are over the limit".
+- **Map button:** shows you, your heading, nearby cameras and community reports. Map tiles need internet; alerts do not.
 - Car Bluetooth or CarPlay/Android Auto audio: the voice is played as navigation guidance, so it should come through the car speakers
   and lower your music. Check this once while parked using **Play test alert**.
 

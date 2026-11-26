@@ -47,6 +47,9 @@ object Geo {
     fun dirMatches(heading: Double?, dirs: IntArray?, tolDeg: Double = 100.0): Boolean =
         heading == null || dirs == null || dirs.isEmpty() || dirs.any { angleDiff(heading, it.toDouble()) <= tolDeg }
 
+    /** Faster than a camera's limit by more than a 5 km/h margin (GPS speed noise)? Unknown limit = never. */
+    fun overLimit(speedMps: Double, limitKmh: Int): Boolean = limitKmh > 0 && speedMps * 3.6 > limitKmh + 5
+
     /** How far ahead (meters) to warn: [leadSeconds] of travel, clamped to 800..3000 m. */
     fun warnRadiusM(speedMps: Double, leadSeconds: Int = 45): Double =
         (speedMps * leadSeconds).coerceIn(800.0, 3000.0)

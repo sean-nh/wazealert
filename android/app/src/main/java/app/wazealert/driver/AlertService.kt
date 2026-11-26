@@ -336,7 +336,10 @@ class AlertService : Service() {
                 (if (moving) "${Fmt.speed(f.speedMps, metric)}, heading ${"%.0f".format(f.heading)}°" else "stationary") +
                 " · ${cams.size} cameras" + (if (mine.isNotEmpty()) ", ${mine.size} yours" else "") +
                 communityNote + riskText + (if (ttsFailed) " · voice unavailable (no speech engine)" else ""),
-            nearest = near?.let { "${it.label} ${Fmt.dist(it.distanceM, metric)}" } ?: "No alerts ahead",
+            nearest = near?.let {
+                "${it.label} ${Fmt.dist(it.distanceM, metric)}" +
+                    (if (moving && it.distanceM < 1500 && Geo.overLimit(f.speedMps, it.limitKmh)) " - SLOW DOWN (limit ${Fmt.limit(it.limitKmh, metric)})" else "")
+            } ?: "No alerts ahead",
             nearestM = near?.distanceM,
             nearestCommunityId = near?.takeIf { it.isCommunity }?.id,
             items = shown.map {
@@ -348,13 +351,14 @@ class AlertService : Service() {
         if (moving && !AlertState.muted && ttsReady) {
             val radius = minOf(Geo.warnRadiusM(f.speedMps, Prefs.lead(this)), radiusM)
             ahead.filter { it.type in speakTypes && voiceOn(it.type) && it.distanceM < radius && announced.add(it.id) }
-                .forEach { speak(it, metric) }
+                .forEach { speak(it, metric, f.speedMps) }
         }
     }
 
-    private fun speak(a: Alert, metric: Boolean) {
+    private fun speak(a: Alert, metric: Boolean, speedMps: Double = 0.0) {
         val text = "${a.label} ahead, ${Fmt.dist(a.distanceM, metric, spoken = true)}" +
-            (if (a.limitKmh > 0) ", limit ${Fmt.limit(a.limitKmh, metric).replace("km/h", "kilometers per hour")}" else "")
+            (if (a.limitKmh > 0) ", limit ${Fmt.limit(a.limitKmh, metric).replace("km/h", "kilometers per hour")}" else "") +
+            (if (Geo.overLimit(speedMps, a.limitKmh)) ", you are over the limit" else "")
         DiagLog.log("speak: $text")
         if (Prefs.beep(this)) {
             tone?.startTone(ToneGenerator.TONE_PROP_BEEP2, 250)

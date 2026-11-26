@@ -59,6 +59,13 @@ class GeoTest {
         assertEquals(2100.0, Geo.warnRadiusM(30.0, 70), 1e-9)
     }
 
+    @Test fun overLimit() {
+        assertTrue(Geo.overLimit(20.0, 56))     // 72 km/h in a 56 zone
+        assertFalse(Geo.overLimit(15.0, 56))    // 54 km/h, under
+        assertFalse(Geo.overLimit(16.5, 56))    // 59.4 km/h, inside the 5 km/h margin
+        assertFalse(Geo.overLimit(40.0, 0))     // unknown limit never warns
+    }
+
     @Test fun units() {
         assertEquals("35 mph", Fmt.limit(56, false))
         assertEquals("30 mph", Fmt.limit(48, false))
