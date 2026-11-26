@@ -59,6 +59,7 @@ class MapActivity : AppCompatActivity() {
     private lateinit var voteRow: LinearLayout
     private lateinit var speedView: TextView
     private lateinit var muteBtn: Button
+    private lateinit var radar: RadarView
     private lateinit var recenterBtn: TextView
     private lateinit var compassBtn: TextView
 
@@ -145,6 +146,8 @@ class MapActivity : AppCompatActivity() {
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xE6212121.toInt()) }
         }
 
+        radar = RadarView(this).apply { elevation = dpf(6f) }
+
         // ---- side buttons ----
         fun side(label: String, size: Float, onClick: () -> Unit) = TextView(this).apply {
             text = label; textSize = size; gravity = Gravity.CENTER; setTypeface(typeface, Typeface.BOLD); elevation = dpf(4f)
@@ -187,6 +190,7 @@ class MapActivity : AppCompatActivity() {
             addView(card, FrameLayout.LayoutParams(-1, -2, Gravity.TOP).apply { setMargins(dp(10), dp(10), dp(10), 0) })
             addView(sideCol, FrameLayout.LayoutParams(-2, -2, Gravity.END or Gravity.CENTER_VERTICAL).apply { setMargins(0, 0, dp(10), 0) })
             addView(speedView, FrameLayout.LayoutParams(dp(84), dp(84), Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(12), 0, 0, dp(84)) })
+            addView(radar, FrameLayout.LayoutParams(dp(150), dp(150), Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(10), dp(84)) })
             addView(bottom, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply { setMargins(dp(8), 0, dp(8), dp(14)) })
             addView(credit, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(6), 0) })
         })
@@ -308,6 +312,7 @@ class MapActivity : AppCompatActivity() {
         }
         val over = nearest != null && s.heading != null && nearest.distanceM < 1500 && Geo.overLimit(s.speedMps, nearest.limitKmh)
         setSpeed(s.speedMps, over)
+        radar.update(s, nearest)
 
         if (nearest == null) idleCard(lastState, s.alerts.count { it.type == "CAMERA" })
         else {

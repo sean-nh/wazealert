@@ -37,6 +37,7 @@ restrictions: see dontkillmyapp.com for your brand.
 ## 4. On the road
 
 - The app opens on the **map**. Open it before you start driving; the top card says 'Finding your location...' until GPS is ready, then 'All clear'.
+- **Radar scope** (bottom-right): you are in the centre, the top is the way you are driving, rings mark distance. Cameras and reports show as dots where they really are. When something is close the rings pulse outward from you, faster the closer it is, and the scope turns amber then red.
 - **The map:** turns to face the way you drive, zooms out as you speed up, and goes dark at night. Big card at the top = the next camera or report ahead, with its posted limit in a red-ring sign. The round bubble bottom-left is your speed and turns red when you are over the next camera's limit. Buttons: **Police** / **Hazard** report what you see, **Mute** silences the voice, **Menu** has the alert list, pre-drive check, settings and Stop. Drag the map to look around; it snaps back to you after 12 seconds (or tap the target button). The side buttons switch heading-up / north-up and zoom.
 - Leave it running. The screen stays on while the app is open; keep the phone plugged in on long trips (GPS drains the battery).
 - Card colours: amber under 1 km, red under 400 m. Voice speaks about 30 to 70 seconds before you arrive (Settings > How early).
