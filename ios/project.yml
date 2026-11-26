@@ -48,7 +48,21 @@ targets:
       - path: Tests
     dependencies:
       - target: WazeAlert
+  WazeAlertUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: WazeAlert
 schemes:
+  WazeAlertUI:
+    build:
+      targets:
+        WazeAlert: all
+    test:
+      targets:
+        - WazeAlertUITests
   WazeAlert:
     build:
       targets:

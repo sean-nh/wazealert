@@ -4,15 +4,29 @@ on:
   workflow_dispatch:
 
 jobs:
-  smoke:
+  # Drives the app along a route with the community server running and a police report seeded ahead.
+  e2e:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Install XcodeGen and generate project
         working-directory: ios
         run: |
           brew install xcodegen
           xcodegen generate
+
+      - name: Start the community server and seed a police report
+        run: |
+          cd server && (nohup node server.js > ../server.log 2>&1 &)
+          curl -s --retry 15 --retry-connrefused --retry-delay 1 http://localhost:8080/healthz
+          echo
+          curl -s -X POST http://localhost:8080/v1/reports -H 'Content-Type: application/json' \
+            -d '{"type":"POLICE","lat":39.7535,"lon":-84.2235,"heading":270,"deviceId":"seed-device-000000001"}'
+          echo
 
       - name: Boot an iPhone simulator
         run: |
@@ -28,33 +42,70 @@ jobs:
           xcodebuild build -project WazeAlert.xcodeproj -scheme WazeAlert -configuration Release \
             -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath build CODE_SIGNING_ALLOWED=NO 2>&1 | tail -15
 
-      - name: Install, grant location, launch
+      - name: Install, point at the server, grant location, launch
         run: |
           APP=$(find ios/build/Build/Products -name WazeAlert.app -path '*iphonesimulator*' | head -1)
-          echo "app: $APP"
           xcrun simctl install "$UDID" "$APP"
           xcrun simctl privacy "$UDID" grant location app.wazealert.driver
+          xcrun simctl spawn "$UDID" defaults write app.wazealert.driver serverUrl "http://localhost:8080"
           mkdir -p shots
           xcrun simctl location "$UDID" set 39.7535,-84.2100
           xcrun simctl launch "$UDID" app.wazealert.driver
           sleep 20
           xcrun simctl io "$UDID" screenshot shots/01-launched.png
 
-      - name: Drive west toward a camera (about 20 m/s)
+      - name: Drive west toward the camera and the seeded report (about 20 m/s)
         run: |
           xcrun simctl location "$UDID" start --speed=20 39.7535,-84.2100 39.7535,-84.2310
-          sleep 40
-          xcrun simctl io "$UDID" screenshot shots/02-driving-40s.png
-          sleep 30
-          xcrun simctl io "$UDID" screenshot shots/03-driving-70s.png
+          sleep 35
+          xcrun simctl io "$UDID" screenshot shots/02-driving-35s.png
+          sleep 22
+          xcrun simctl io "$UDID" screenshot shots/03-near-report-57s.png
+          sleep 25
+          xcrun simctl io "$UDID" screenshot shots/04-past-82s.png
 
-      - name: App must still be running (no crash)
+      - name: App must still be running, no crash reports
         run: |
           xcrun simctl spawn "$UDID" launchctl list | grep app.wazealert.driver
           ls ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -i wazealert && exit 1 || echo "no crash reports"
+
+      - name: Server saw the app talk to it
+        if: always()
+        run: |
+          curl -s "http://localhost:8080/v1/risk?lat=39.7535&lon=-84.2235" ; echo
+          tail -5 server.log || true
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ios-smoke-screenshots
           path: shots/
+
+  # Taps through the real UI: permission prompt, buttons, settings sheet.
+  ui-tests:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen and generate project
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Pick a simulator
+        run: |
+          UDID=$(xcrun simctl list devices available iPhone | grep -Eo '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}' | head -1)
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+      - name: UI tests
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild test -project WazeAlert.xcodeproj -scheme WazeAlertUI \
+            -destination "platform=iOS Simulator,id=$UDID" -resultBundlePath ui.xcresult \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee ui-test.log | tail -50
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-ui-test-results
+          path: |
+            ios/ui-test.log
+            ios/ui.xcresult
